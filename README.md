@@ -2,6 +2,8 @@
 
 Icon-only directional sound indicators for deaf and hard-of-hearing Hytale players, inspired by Fortnite's visual sound cues.
 
+**This project was made by AI.** OpenAI Codex generated the mod code, tests, build scripts and documentation under Waryck's direction. Waryck provided the accessibility goals, design feedback, in-game testing and showcase recording. The icons are existing Hytale game assets copied locally during the build.
+
 **Prototype 0.2.0 · Hytale 0.7.2 · Singleplayer first**
 
 ## Showcase
