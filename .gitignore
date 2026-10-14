@@ -1,0 +1,8 @@
+/build/
+/smoke/
+/dist/
+/verification.json
+/src/main/resources/Common/UI/Custom/SoundCompass/
+__pycache__/
+*.pyc
+*.log
