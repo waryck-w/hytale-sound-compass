@@ -8,7 +8,7 @@ Icon-only directional sound indicators for deaf and hard-of-hearing Hytale playe
 
 https://github.com/user-attachments/assets/fe252845-fab7-4f48-9c6c-6f6a589cd747
 
-[![Sound Compass gameplay showcase](docs/showcase.jpg)](https://github.com/user-attachments/assets/fe252845-fab7-4f48-9c6c-6f6a589cd747)
+![Sound Compass gameplay showcase](docs/showcase.jpg)
 
 Recorded by Waryck during singleplayer testing. [Download the showcase recording](docs/showcase.mp4).
 
