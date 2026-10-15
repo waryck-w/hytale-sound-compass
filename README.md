@@ -4,7 +4,7 @@ Icon-only directional sound indicators for deaf and hard-of-hearing Hytale playe
 
 **This project was made by AI.** OpenAI Codex generated the mod code, tests, build scripts and documentation under Waryck's direction. Waryck provided the accessibility goals, design feedback, in-game testing and showcase recording. The icons are existing Hytale game assets copied locally during the build.
 
-**Prototype 0.3.0 · Hytale 0.7.2 · Singleplayer first**
+**Prototype 0.3.1 · Hytale 0.7.2 · Singleplayer first**
 
 ## Showcase
 
@@ -12,11 +12,11 @@ https://github.com/user-attachments/assets/fe252845-fab7-4f48-9c6c-6f6a589cd747
 
 ![Sound Compass gameplay showcase](docs/showcase.jpg)
 
-Recorded by Waryck during singleplayer testing of 0.2.0. Version 0.3.0 adds continuous 360-degree movement. [Download the showcase recording](docs/showcase.mp4).
+Recorded by Waryck during singleplayer testing of 0.2.0. Version 0.3.1 adds continuous movement on a fixed circle centered on the crosshair. [Download the showcase recording](docs/showcase.mp4).
 
 ## Features
 
-- Continuous 360-degree bearings around the crosshair, following the player's head rotation.
+- Icons slide around a fixed circle centered on the crosshair as the player turns, with continuous 360-degree bearings.
 - Smoothed icon and arc movement at roughly 30 updates per second, including across the rear compass boundary.
 - Stable markers for repeated sounds and moving entity-attached sound sources.
 - Icons and short ring segments, without words or text panels.
@@ -32,7 +32,7 @@ Recorded by Waryck during singleplayer testing of 0.2.0. Version 0.3.0 adds cont
 
 1. Build the mod as described below.
 2. Save and return to Hytale's main menu.
-3. Place `dist/SoundCompass-0.3.0.jar` in `UserData/Saves/<your world>/mods/`. Remove older Sound Compass JARs from that folder.
+3. Place `dist/SoundCompass-0.3.1.jar` in `UserData/Saves/<your world>/mods/`. Remove older Sound Compass JARs from that folder.
 4. Enable **Deaftale:SoundCompass** in that world's mod settings, then reopen the world.
 5. Run `/sc demo` to preview the icons without playing any audio.
 
@@ -94,13 +94,13 @@ export SOUND_COMPASS_JDK="/path/to/jdk-25"
 
 `JAVA_HOME` or a JDK on `PATH` can also select the compiler. Alternatively, `HYTALE_GAME_DIR` can point to the game folder containing `Server/` and `Assets.zip`.
 
-The build generates UI files, 360 compact arc patches and local icon copies, compiles the plugin, runs its checks and creates `dist/SoundCompass-0.3.0.jar`. Generated resources and compiled builds are ignored by Git. Compact 128-pixel arc patches keep the raw rotation texture footprint around 23 MiB.
+The build generates UI files, 360 fixed-center arc frames and local icon copies, compiles the plugin, runs its checks and creates `dist/SoundCompass-0.3.1.jar`. Generated resources and compiled builds are ignored by Git. The 256-pixel arc frames all share the same center and occupy about 90 MiB of raw texture memory. Their UI positions stay fixed; only the frame and icon position change.
 
 ## Verification
 
-The current build passes **85 automated checks**, including sweeps through arbitrary bearings at eight camera headings, shortest-path angle smoothing, frame-rate independence, stable marker identities, moving sound sources, expiry, range filtering, self-footstep suppression, prioritization, bounded floods, icon mappings and preference persistence.
+The current build passes **87 automated checks**, including sweeps through arbitrary bearings at eight camera headings, shortest-path angle smoothing, frame-rate independence, stable marker identities, moving sound sources, expiry, range filtering, self-footstep suppression, prioritization, bounded floods, icon mappings and preference persistence.
 
-Package checks validate both UI layouts' 740 texture references, reject parent-directory texture paths and text labels, check all rotation style and marker definitions, and verify all ten native icon copies by hash. Plugin loading, command registration and clean shutdown were checked against Hytale 0.7.2 in an isolated local test. The showcase documents singleplayer testing of the earlier version; the new motion still needs in-game verification.
+Package checks validate both UI layouts' 740 texture references, reject parent-directory texture paths and text labels, check all rotation style and marker definitions, require a viewport-filling root and absolute-positioned canvas with fixed arc bounds, verify arc pixels share that center at eight headings, and verify all ten native icon copies by hash. Plugin loading, command registration and clean shutdown were checked against Hytale 0.7.2 in an isolated local test. The showcase documents singleplayer testing of the earlier version; the corrected fixed-circle layout still needs in-game verification.
 
 ## Current limitations
 

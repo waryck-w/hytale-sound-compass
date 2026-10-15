@@ -3,6 +3,7 @@ package dev.deaftale.compass;
 import com.hypixel.hytale.server.core.entity.entities.player.hud.CustomUIHud;
 import com.hypixel.hytale.server.core.ui.builder.UICommandBuilder;
 import com.hypixel.hytale.server.core.ui.Value;
+import com.hypixel.hytale.server.core.ui.Anchor;
 import com.hypixel.hytale.server.core.universe.PlayerRef;
 import java.util.Arrays;
 
@@ -45,11 +46,15 @@ final class CompassHud extends CustomUIHud {
             CompassMotion.Position target = next[i], old = positions[i];
             if (target != null && !target.equals(old)) {
                 changed = true;
-                if (old == null || old.iconLeft() != target.iconLeft()) builder.set("#Marker" + i + ".Anchor.Left", target.iconLeft());
-                if (old == null || old.iconTop() != target.iconTop()) builder.set("#Marker" + i + ".Anchor.Top", target.iconTop());
+                if (old == null || old.iconLeft() != target.iconLeft() || old.iconTop() != target.iconTop()) {
+                    Anchor anchor = new Anchor();
+                    anchor.setLeft(Value.of(target.iconLeft()));
+                    anchor.setTop(Value.of(target.iconTop()));
+                    anchor.setWidth(Value.of(large ? 64 : 48));
+                    anchor.setHeight(Value.of(large ? 64 : 48));
+                    builder.setObject("#Marker" + i + ".Anchor", anchor);
+                }
                 if (i < CueEngine.DIRECTIONAL_SLOTS) {
-                    if (old == null || old.arcLeft() != target.arcLeft()) builder.set("#Arc" + i + ".Anchor.Left", target.arcLeft());
-                    if (old == null || old.arcTop() != target.arcTop()) builder.set("#Arc" + i + ".Anchor.Top", target.arcTop());
                     if (old == null || old.frame() != target.frame()) {
                         builder.set("#Arc" + i + ".Background", Value.ref(large ? "SoundCompass/Large.ui" : "SoundCompass/Standard.ui",
                                 "Arc" + String.format(java.util.Locale.ROOT, "%03d", target.frame())));

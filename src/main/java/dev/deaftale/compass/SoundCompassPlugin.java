@@ -67,7 +67,7 @@ public final class SoundCompassPlugin extends JavaPlugin {
         });
         // Only dispatch here. ECS reads and HUD updates happen on the owning world thread.
         timer.scheduleAtFixedRate(this::dispatch, 33, 33, TimeUnit.MILLISECONDS);
-        getLogger().at(Level.INFO).log("Sound Compass 0.3.0 ready. Use /soundcompass demo to preview.");
+        getLogger().at(Level.INFO).log("Sound Compass 0.3.1 ready. Use /soundcompass demo to preview.");
     }
 
     private void attach(PlayerRef player, Player entity, World world) {

@@ -51,6 +51,17 @@ public final class CueEngineTest {
     }
 
     private static void smoothMotion() {
+        for (boolean large : new boolean[]{false, true}) {
+            int centre = large ? 320 : 250, halfIcon = large ? 32 : 24, radius = large ? 278 : 212;
+            double maxError = 0;
+            for (int degree = 0; degree < 360; degree++) {
+                var position = CompassMotion.position(Math.toRadians(degree), large, true);
+                double x = position.iconLeft() + halfIcon - centre;
+                double y = position.iconTop() + halfIcon - centre;
+                maxError = Math.max(maxError, Math.abs(Math.hypot(x, y) - radius));
+            }
+            check(maxError < .71, "Every bearing stays on the same crosshair-centred circle, large=" + large);
+        }
         double current = Math.toRadians(179), target = Math.toRadians(-179);
         double next = CompassMotion.approach(current, target, 1.0 / 30);
         double travelled = CueEngine.wrap(next - current);
