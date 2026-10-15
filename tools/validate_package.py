@@ -16,8 +16,14 @@ def validate(package):
         for document in ('Large.ui', 'Standard.ui'):
             filename = root + document
             contents = archive.read(filename).decode()
-            textures = set(re.findall(r'Background:\s*"([^"]+)"', contents))
-            assert len(textures) == 18, f'{document}: expected 8 arcs and 10 icons'
+            textures = set(re.findall(r'(?:Background|TexturePath):\s*"([^"]+)"', contents))
+            assert len(textures) == 370, f'{document}: expected 360 arc patches and 10 icons'
+            arc_values = re.findall(r'@Arc(\d{3})\s*=\s*PatchStyle', contents)
+            assert arc_values == [f'{i:03}' for i in range(360)], f'{document}: incomplete rotation styles'
+            for slot in range(9):
+                assert f'Group #Marker{slot} ' in contents, f'{document}: missing movable marker'
+                if slot < 8:
+                    assert f'Group #Arc{slot} ' in contents, f'{document}: missing movable arc'
             assert not re.search(r'\bLabel\b|\bText\s*:', contents), f'{document}: icon-only UI must not contain text'
             for texture in textures:
                 path = PurePosixPath(texture)

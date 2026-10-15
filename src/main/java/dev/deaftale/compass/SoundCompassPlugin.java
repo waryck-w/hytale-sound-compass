@@ -66,8 +66,8 @@ public final class SoundCompassPlugin extends JavaPlugin {
             return thread;
         });
         // Only dispatch here. ECS reads and HUD updates happen on the owning world thread.
-        timer.scheduleAtFixedRate(this::dispatch, 100, 100, TimeUnit.MILLISECONDS);
-        getLogger().at(Level.INFO).log("Sound Compass 0.2.0 ready. Use /soundcompass demo to preview.");
+        timer.scheduleAtFixedRate(this::dispatch, 33, 33, TimeUnit.MILLISECONDS);
+        getLogger().at(Level.INFO).log("Sound Compass 0.3.0 ready. Use /soundcompass demo to preview.");
     }
 
     private void attach(PlayerRef player, Player entity, World world) {
@@ -139,7 +139,7 @@ public final class SoundCompassPlugin extends JavaPlugin {
         if (!java.util.Objects.equals(player.getWorldUuid(), session.world.getWorldConfig().getUuid())) {
             session.incoming.clear();
             session.engine.clear();
-            if (session.hud != null) session.hud.render(new CueEngine.View[9]);
+            if (session.hud != null) session.hud.render(new CueEngine.View[CueEngine.VIEW_SLOTS], now());
             return;
         }
         var ref = player.getReference();
@@ -183,10 +183,18 @@ public final class SoundCompassPlugin extends JavaPlugin {
             // Sound range is only an upper bound; final client mixing/occlusion isn't exposed here.
             double range = asset.getMaxDistance() > 0 ? Math.min(MAX_RANGE, asset.getMaxDistance()) : MAX_RANGE;
             session.engine.add(new CueEngine.Cue(asset.getId(), kind, CueEngine.label(asset.getId()),
-                    source, sound.time, LIFETIME_MS, false, sprinting), listener, range, session.options.quiet(), time);
+                    source, sound.time, LIFETIME_MS, false, sprinting, sound.networkId), listener, range, session.options.quiet(), time);
         }
         if (session.options.enabled() && session.hud != null) {
-            session.hud.render(session.engine.view(listener, head.getRotation().yaw(), time));
+            session.engine.updateSources(networkId -> {
+                var sourceRef = session.world.getEntityStore().getRefFromNetworkId(networkId);
+                if (sourceRef == null || !sourceRef.isValid()) return null;
+                var sourceTransform = store.getComponent(sourceRef, TransformComponent.getComponentType());
+                if (sourceTransform == null) return null;
+                var sourcePosition = sourceTransform.getPosition();
+                return new CueEngine.Point(sourcePosition.x, sourcePosition.y, sourcePosition.z);
+            }, time);
+            session.hud.render(session.engine.view(listener, head.getRotation().yaw(), time), time);
         }
     }
 

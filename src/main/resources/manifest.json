@@ -1,7 +1,7 @@
 {
   "Group": "Deaftale",
   "Name": "SoundCompass",
-  "Version": "0.2.0",
+  "Version": "0.3.0",
   "Description": "Icon-only directional sound indicators for deaf and hard-of-hearing players.",
   "Authors": [{ "Name": "Deaftale" }],
   "Main": "dev.deaftale.compass.SoundCompassPlugin",

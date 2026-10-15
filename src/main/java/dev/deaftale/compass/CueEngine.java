@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.function.IntFunction;
 
 /** Sound-only model. Never queries entities or discovers sound sources. World-thread confined. */
 final class CueEngine {
@@ -21,16 +22,33 @@ final class CueEngine {
             return Math.sqrt(Math.pow(x - other.x, 2) + Math.pow(y - other.y, 2) + Math.pow(z - other.z, 2));
         }
     }
-    record Cue(String id, Kind kind, String label, Point source, long time, long duration, boolean demo, boolean sprinting) {
+    record Cue(String id, Kind kind, String label, Point source, long time, long duration, boolean demo, boolean sprinting, int networkId) {
         Cue(String id, Kind kind, String label, Point source, long time, long duration, boolean demo) {
-            this(id, kind, label, source, time, duration, demo, false);
+            this(id, kind, label, source, time, duration, demo, false, -1);
+        }
+        Cue(String id, Kind kind, String label, Point source, long time, long duration, boolean demo, boolean sprinting) {
+            this(id, kind, label, source, time, duration, demo, sprinting, -1);
         }
     }
     enum Icon { GOBLIN, FOOTSTEP, SPRINT, COMBAT, AXE, PICKAXE, CREATURE, INTERACTION, ENVIRONMENT, OTHER }
-    record View(Icon icon, int priority, long time) {}
+    record View(long id, Icon icon, double angle, boolean directional, int priority, long time) {}
     static final int MAX_ACTIVE = 64;
-    static final String[] DIRECTIONS = {"FRONT", "FRONT RIGHT", "RIGHT", "BACK RIGHT", "BACK", "BACK LEFT", "LEFT", "FRONT LEFT"};
-    private final List<Cue> active = new ArrayList<>();
+    static final int DIRECTIONAL_SLOTS = 8;
+    static final int LOCAL_SLOT = DIRECTIONAL_SLOTS;
+    static final int VIEW_SLOTS = DIRECTIONAL_SLOTS + 1;
+    private static final double MIN_SEPARATION = Math.toRadians(15);
+    private static final Comparator<Tracked> IMPORTANCE = Comparator
+            .comparingInt((Tracked sound) -> sound.cue.kind.priority).reversed()
+            .thenComparing(Comparator.comparingLong((Tracked sound) -> sound.cue.time).reversed());
+    private final List<Tracked> active = new ArrayList<>();
+    private final long[] slotIds = new long[DIRECTIONAL_SLOTS];
+    private long nextId = 1;
+
+    private static final class Tracked {
+        final long id;
+        Cue cue;
+        Tracked(long id, Cue cue) { this.id = id; this.cue = cue; }
+    }
 
     static Kind classify(String id, String category) {
         String s = id.toLowerCase(Locale.ROOT);
@@ -101,10 +119,13 @@ final class CueEngine {
         return s.length() > 24 ? s.substring(0, 23) + "…" : s;
     }
 
-    /** Sector 0 is forward. Hytale yaw=0 faces -Z; positive yaw turns toward -X. */
-    static int sector(Point listener, Point source, double yaw) {
-        double angle = Math.atan2(source.x - listener.x, -(source.z - listener.z)) + yaw;
-        return Math.floorMod((int) Math.floor(angle / (Math.PI / 4) + .5), 8);
+    /** Continuous clockwise bearing: forward=0, right=pi/2. Hytale yaw=0 faces -Z. */
+    static double bearing(Point listener, Point source, double yaw) {
+        return wrap(Math.atan2(source.x - listener.x, -(source.z - listener.z)) + yaw);
+    }
+
+    static double wrap(double angle) {
+        return Math.atan2(Math.sin(angle), Math.cos(angle));
     }
 
     void add(Cue cue, Point listener, double maximumRange, boolean quiet, long now) {
@@ -115,35 +136,81 @@ final class CueEngine {
         // Suppress feet at the listener's own position, without hiding nearby players.
         if (!cue.demo && cue.kind == Kind.FOOTSTEP && cue.source != null
                 && cue.source.distance(listener) < .8) return;
-        active.removeIf(old -> now - old.time >= old.duration || sameSource(old, cue));
+        active.removeIf(old -> now - old.cue.time >= old.cue.duration);
+        for (Tracked old : active) {
+            if (sameSource(old.cue, cue)) {
+                old.cue = cue;
+                return; // Keep identity so repeated footsteps don't restart motion smoothing.
+            }
+        }
         if (active.size() >= MAX_ACTIVE) {
-            Cue victim = active.stream().min(Comparator.comparingInt((Cue c) -> c.kind.priority)
-                    .thenComparingLong(Cue::time)).orElseThrow();
-            if (victim.kind.priority > cue.kind.priority) return;
+            Tracked victim = active.stream().max(IMPORTANCE).orElseThrow();
+            if (victim.cue.kind.priority > cue.kind.priority) return;
             active.remove(victim);
         }
-        active.add(cue);
+        active.add(new Tracked(nextId++, cue));
     }
 
     private boolean sameSource(Cue a, Cue b) {
+        if (a.networkId >= 0 && b.networkId >= 0) {
+            return a.networkId == b.networkId && (a.id.equals(b.id)
+                    || (a.kind == Kind.FOOTSTEP && b.kind == Kind.FOOTSTEP));
+        }
+        if (a.networkId != b.networkId) return false;
         return a.id.equals(b.id) && ((a.source == null && b.source == null)
                 || (a.source != null && b.source != null && a.source.distance(b.source) < 2));
     }
 
+    /** Only tracks entities already identified by received sound packets; never discovers new sources. */
+    void updateSources(IntFunction<Point> positions, long now) {
+        active.removeIf(sound -> now - sound.cue.time >= sound.cue.duration);
+        for (Tracked sound : active) {
+            Cue c = sound.cue;
+            if (c.networkId < 0) continue;
+            Point point = positions.apply(c.networkId);
+            if (point != null && point.finite()) {
+                sound.cue = new Cue(c.id, c.kind, c.label, point, c.time, c.duration, c.demo, c.sprinting, c.networkId);
+            }
+        }
+    }
+
     View[] view(Point listener, double yaw, long now) {
-        active.removeIf(c -> now - c.time >= c.duration);
-        View[] views = new View[9]; // 8 bearings plus a non-directional icon.
-        for (Cue c : active) {
-            int slot = c.source == null ? 8 : sector(listener, c.source, yaw);
-            View previous = views[slot];
-            if (previous == null || c.kind.priority > previous.priority
-                    || (c.kind.priority == previous.priority && c.time > previous.time)) {
-                views[slot] = new View(iconFor(c.id, c.kind, c.sprinting), c.kind.priority, c.time);
+        active.removeIf(sound -> now - sound.cue.time >= sound.cue.duration);
+        View[] views = new View[VIEW_SLOTS];
+        List<View> selected = new ArrayList<>(DIRECTIONAL_SLOTS);
+        for (Tracked sound : active.stream().sorted(IMPORTANCE).toList()) {
+            Cue c = sound.cue;
+            if (c.source == null) {
+                if (views[LOCAL_SLOT] == null) views[LOCAL_SLOT] = makeView(sound, 0, false);
+                continue;
+            }
+            if (selected.size() == DIRECTIONAL_SLOTS) continue;
+            double angle = bearing(listener, c.source, yaw);
+            if (selected.stream().noneMatch(other -> Math.abs(wrap(other.angle - angle)) < MIN_SEPARATION)) {
+                selected.add(makeView(sound, angle, true));
+            }
+        }
+        // A slot belongs to a sound identity, not an angle. Crossing any compass boundary
+        // must not swap icons or make them jump to another slot.
+        for (int slot = 0; slot < DIRECTIONAL_SLOTS; slot++) {
+            long id = slotIds[slot];
+            View retained = selected.stream().filter(view -> view.id == id).findFirst().orElse(null);
+            if (retained == null) slotIds[slot] = 0;
+            else { views[slot] = retained; selected.remove(retained); }
+        }
+        for (View view : selected) {
+            for (int slot = 0; slot < DIRECTIONAL_SLOTS; slot++) {
+                if (slotIds[slot] == 0) { slotIds[slot] = view.id; views[slot] = view; break; }
             }
         }
         return views;
     }
 
-    void clear() { active.clear(); }
+    private View makeView(Tracked sound, double angle, boolean directional) {
+        Cue c = sound.cue;
+        return new View(sound.id, iconFor(c.id, c.kind, c.sprinting), angle, directional, c.kind.priority, c.time);
+    }
+
+    void clear() { active.clear(); java.util.Arrays.fill(slotIds, 0); }
     int activeCount() { return active.size(); }
 }
